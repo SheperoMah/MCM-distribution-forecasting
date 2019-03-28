@@ -1,4 +1,4 @@
-# MCMD-forecasting
+# MCM distribution forecasting
 MCM.py is a collection of functions for the Markov-chain Mixture 
 Distribution model for forecasting developed by  
 Dr. Joakim Munkhammar, Ph.D., Uppsala University 2019.
