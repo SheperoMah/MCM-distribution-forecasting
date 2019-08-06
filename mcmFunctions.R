@@ -51,7 +51,7 @@ mcmRnd <- function(binStartVals, transProbs, numSamples){
   
   rndValue <- rep(0, numSamples)
   for (i in 1:numSamples){
-    binIndex <- min(which(randWithinECDF[i] < empiricalCdf))
+    binIndex <- min(which(randWithinECDF[i] <= empiricalCdf))
     rndValue[i] <- binStartVals[binIndex] + randWithinBin[i]
   }
   return(rndValue)
