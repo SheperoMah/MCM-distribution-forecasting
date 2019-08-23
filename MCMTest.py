@@ -5,36 +5,38 @@
 # file and as a test data set TestData.m as input for forecasting.
 #
 # Import the MCM file
-from MCM import MCMFit, MCMForecast, MCMRnd
-import matplotlib.pyplot as plt
+
 import numpy as np  
+import matplotlib.pyplot as plt
+from MCM import MCMFit, MCMForecast, MCMRnd
 
 # Load the files
-TestFilename = "TestData.txt"
-Data = np.loadtxt(TestFilename).transpose()  
+testFilename = "TestData.txt"
+data = np.loadtxt(testFilename).transpose()  
 
 # Set the number of bins
-N=50
+n = 50
 
 # Number of sampled points from predictive distribution
-Num = 2000
+num = 2000
 
 # Number of steps ahead forecast
-Steps = 1
+steps = 1
 
 # Observed point, from which to forecast
-Obspoint = 0.5
+obsPoint = 0.5
 
 # Obtain the NxN transition matrix P from the data
 # and Num number of steps ahead
-P=MCMFit(Data,N,Steps)
+p = MCMFit(data, n, steps)
 
 # Obtain X and Y for the piecewise uniform distribution
-X, Y  = MCMForecast(P,min(Data),max(Data), Obspoint)
+binStarts, transProbs = MCMForecast(p, data.min(), data.max(), obsPoint)
 
 # Generate Num random numbers of samples from the forecasted distribution
-NewSamples = MCMRnd(P,X,Y,Num)
+fcstSamples = MCMRnd(binStarts, transProbs, num)
 
-plt.hist(NewSamples,30)
-plt.plot(X,Num*Y)
+plt.hist(fcstSamples, 30)
+plt.plot(binStarts, num*transProbs)
 plt.axis([0.3, 0.8, 0, 800])
+plt.show()
