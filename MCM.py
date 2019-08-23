@@ -112,13 +112,13 @@ def MCMForecast(p, minValue, maxValue, obsPoint):
     binWidth = (maxValue - minValue) / n 
 
     # Calculate the range of the bins
-    binStarts = np.arange(n) * binWidth + a
+    binStarts = np.arange(n) * binWidth + minValue
 
     # Identify which bin the obspoint belongs to
     obsBin = np.where(obsPoint >= binStarts)[0][-1]  
 
     # Return the X and Y of the piece-wise uniform distribution
-    return(binStarts, p[obsbin, :])
+    return(binStarts, p[obsBin, :])
 
 
 def MCMRnd(binStarts, transProbs, count):
