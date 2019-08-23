@@ -30,89 +30,137 @@
 
 import numpy as np  
 
-def MCMFit(Data,N,Power):
+def MCMFit(data, n, timeSteps=1):
+    """Estimates the transition probability to the future time-step.
 
+    Parameters
+    ----------
+    data : (n,)
+        Numpy array containing the data. This array should be of width 
+        1.
+    n : int
+        Number of states to be fitted in the transition matrix.
+    timeSteps : int, optional
+        The time-steps of the returned transition matrix (the default
+    is 1, which returns the transition matrix for the following time-
+    step).
+    
+    Returns
+    -------
+    np.array(n,n)
+       The transition matrix for the time-steps. 
+
+    """
     # Set up bins and limits
-    a = np.min(Data)
-    b = np.max(Data)
-    binWidth = (b - a) / N
+    a = np.min(data)
+    b = np.max(data)
+    binWidth = (b - a) / n
 
-    # Define the bins
-    Bin = np.zeros(N)
-    for i in range(0,N):
-        Bin[i] = ((i)/N)*(b-a)
 
     # Identify the states for the Markov-chain in the data set                    
-    State = np.floor((Data-a)*(N)/(b-a))
-    State[State>(N-1)] = N-1
+    state = np.floor((data-a) / binWidth)
+    state[state > (n-1)] = n - 1
+    state = state.astype('int32')
     
     # Generate the transition matrix
-    P = np.zeros((N,N))
-    for i in range(1,len(Data)):
-        P[int(State[i-1]),int(State[i])]= P[int(State[i-1]),int(State[i])]+1
+    p = np.zeros((n,n))
+    for i in range(1,len(data)):
+        p[state[i-1], state[i]]= p[state[i-1], state[i]] + 1
  
     # Normalizing the transition matrix
-    for i in range(0,N):
-        P[i,:] = P[i,:]/sum(P[i,:])
+    rowSums = p.sum(1)
+    rowSums[rowSums == 0] = 1.0 # do not divide by zero
+    p = p / rowSums[:, np.newaxis]
 
-    # Failsafe, in case of NANs
-    P[np.isnan(P)] = 0
-
-    P = np.linalg.matrix_power(P, Power)    
+    p = np.linalg.matrix_timeSteps(p, timeSteps)    
 
     # Return the transition matrix
-    return(P)
+    return(p)
     
-def MCMForecast(P,a,b,obspoint):
-    assert a < b, "a must be less than b."
+
+def MCMForecast(p, minValue, maxValue, obsPoint):
+    """Returns the transition row and the bin stratring values.
+
+    Parameters
+    ---------
+    p : np.arange(n,n)
+        The transition matrix. 
+    minValue : float
+        The minimum value in the range of the data.
+    maxValue : float
+        The maximum value in the range of the data.
+    obsPoint : float
+        Observation from which to forecast.
+
+    Returns
+    -------
+    np.array(n,)
+        The bin starting values.
+    np.array(n,)
+        The row in the transition matrix p which represents starting
+    from the observation.
+     
+    """
+    assert minValue < maxValue, "minValue must be less than maxValue."
+    assert obsPoint >= minValue, "Observation has to be larger than " \
+    + "minValue."
 
     # The number of bins 
-    N = P.shape[0]
-    
-    # Identify which bin the obspoint belongs to
-    for i in range(0,N):
-        if obspoint>b:
-            obsbin = N-1
-        if obspoint>=a+abs(b-a)*(i)/N and obspoint<a+abs(b-a)*(i+1)/N :
-            obsbin = i
-           
+    n = p.shape[0]
+   
+    # Bin starting values 
+    binWidth = (maxValue - minValue) / n 
+
     # Calculate the range of the bins
-    Bins = np.zeros(N)
-    for i in range(0,N):
-        Bins[i] = a+abs(b-a)*(i)/N
+    binStarts = np.arange(n) * binWidth + a
+
+    # Identify which bin the obspoint belongs to
+    obsBin = np.where(obsPoint >= binStarts)[0][-1]  
 
     # Return the X and Y of the piece-wise uniform distribution
-    return(Bins,P[obsbin,np.arange(0,N)])
+    return(binStarts, p[obsbin, :])
 
-def MCMRnd(P,X,Y,Num):
-    import numpy as np  
+
+def MCMRnd(binStarts, transProbs, count):
+    """Generate random forecasts from a bin.
+    
+    Parameters
+    ----------
+    binStarts : np.array(n,)
+        An array contains the bin starting values.
+    transProbs : np.array(n,)
+        The transition probabilities from the forecast point.
+    count : int
+        Number of forecast samples.
+
+    Returns
+    -------
+    np.array(count,)
+        An array of forecast samples
+
+    """
     # Calculate the bin-width
-    diff = abs(X[2]-X[1])
+    binWidth = np.diff(binStarts)[0]
     
     # Set N as the the matrix size
-    N = np.shape(X)[0]
+    n = binStarts.shape[0]
 
     # Define the CDF (for later use of inverse CDF)    
-    Prow = np.zeros(N+1)
-    for i in range(0,N+1):
-        Prow[i] = sum(Y[np.arange(0,i)])
-    
+    probsCDF = np.cumsum(transProbs)
+ 
     # Calculating the Num samples from the distribution
     # First setting initial conditions and a randomizer
-    NewSamples = np.zeros(Num)        
-    r = np.random.uniform(0,1,Num)
+    randWithinECDF = np.random.uniform(0, 1, count)
     # Setting the uniform random variable in each bin
-    r2 = np.random.uniform(0,1,Num)
+    randWithinBin = np.random.uniform(0, binWidth, count)
+
+
+    fcstSamples = np.zeros(count)        
     # Sampling from the CDF and then obtaining the inverse CDF
-    for i in range(0,Num):
-        for j in range(0,N+1):
-            if r[i]>=Prow[j] and r[i]<Prow[j+1]:
-                NewSamples[i] = X[j]+diff*r2[i]
+    for i in range(count):
+        binIndex = np.where(randWithinECDF[i] <= probsCDF)[0][0]
+        fcstSamples[i] = binStarts[binIndex] + randWithinBin[i]
 
     # Return the samples                
-    return NewSamples
-    
-
-    
-    
+    return(fcstSamples)
     
