@@ -72,7 +72,7 @@ def MCMFit(data, n, timeSteps=1):
     rowSums[rowSums == 0] = 1.0 # do not divide by zero
     p = p / rowSums[:, np.newaxis]
 
-    p = np.linalg.matrix_timeSteps(p, timeSteps)    
+    p = np.linalg.matrix_power(p, timeSteps)    
 
     # Return the transition matrix
     return(p)
