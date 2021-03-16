@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 #
 # MCM.py is a collection of functions for the Markov-chain
-# Mixture Distribution model for forecasting. 
+# Mixture Distribution model for forecasting.
 #
 # The model was published in:
-# [1] J. Munkhammar&J. Widén, Probabilistic forecasting of high-resolution 
-# clear-sky index time-series using a Markov-chain mixture distribution 
+# [1] J. Munkhammar&J. Widén, Probabilistic forecasting of high-resolution
+# clear-sky index time-series using a Markov-chain mixture distribution
 # model, Solar Energy vol XX 2019. (Available as preprint on Researchgate)
 #
 # Any use of this model should cite the reference and state that this model
@@ -13,7 +13,7 @@
 #
 # This file contains the following functions:
 #
-# P = MCMFit(Data,N) which determines an NxN transition matrix P from a 
+# P = MCMFit(Data,N) which determines an NxN transition matrix P from a
 # time-series in Data.
 #
 # X, Y = MCMForecast(P,a,b,obspoint) which delivers a piece-wise uniform
@@ -22,13 +22,13 @@
 # from.
 #
 # NewSamples = MCMRnd(X,Y,Num) which delivers Num number of samples of the
-# distribution X,Y (obtained in MCMForecast), which is the predictive 
+# distribution X,Y (obtained in MCMForecast), which is the predictive
 # distribution (the forecast).
 #
 # These functions can all be tested using MCMtest.py, which is accompanied
 # by a test data set TestData.txt
 
-import numpy as np  
+import numpy as np
 
 def MCMFit(data, n, timeSteps=1):
     """Estimates the transition probability to the future time-step.
@@ -36,7 +36,7 @@ def MCMFit(data, n, timeSteps=1):
     Parameters
     ----------
     data : (n,)
-        Numpy array containing the data. This array should be of width 
+        Numpy array containing the data. This array should be of width
         1.
     n : int
         Number of states to be fitted in the transition matrix.
@@ -44,11 +44,11 @@ def MCMFit(data, n, timeSteps=1):
         The time-steps of the returned transition matrix (the default
     is 1, which returns the transition matrix for the following time-
     step).
-    
+
     Returns
     -------
     np.array(n,n)
-       The transition matrix for the time-steps. 
+       The transition matrix for the time-steps.
 
     """
     # Set up bins and limits
@@ -57,26 +57,26 @@ def MCMFit(data, n, timeSteps=1):
     binWidth = (b - a) / n
 
 
-    # Identify the states for the Markov-chain in the data set                    
+    # Identify the states for the Markov-chain in the data set
     state = np.floor((data-a) / binWidth)
     state[state > (n-1)] = n - 1
     state = state.astype('int32')
-    
+
     # Generate the transition matrix
     p = np.zeros((n,n))
     for i in range(1,len(data)):
         p[state[i-1], state[i]]= p[state[i-1], state[i]] + 1
- 
+
     # Normalizing the transition matrix
     rowSums = p.sum(1)
     rowSums[rowSums == 0] = 1.0 # do not divide by zero
     p = p / rowSums[:, np.newaxis]
 
-    p = np.linalg.matrix_power(p, timeSteps)    
+    p = np.linalg.matrix_power(p, timeSteps)
 
     # Return the transition matrix
     return(p)
-    
+
 
 def MCMForecast(p, minValue, maxValue, obsPoint):
     """Returns the transition row and the bin stratring values.
@@ -84,7 +84,7 @@ def MCMForecast(p, minValue, maxValue, obsPoint):
     Parameters
     ---------
     p : np.arange(n,n)
-        The transition matrix. 
+        The transition matrix.
     minValue : float
         The minimum value in the range of the data.
     maxValue : float
@@ -99,23 +99,23 @@ def MCMForecast(p, minValue, maxValue, obsPoint):
     np.array(n,)
         The row in the transition matrix p which represents starting
     from the observation.
-     
+
     """
     assert minValue < maxValue, "minValue must be less than maxValue."
     assert obsPoint >= minValue, "Observation has to be larger than " \
     + "minValue."
 
-    # The number of bins 
+    # The number of bins
     n = p.shape[0]
-   
-    # Bin starting values 
-    binWidth = (maxValue - minValue) / n 
+
+    # Bin starting values
+    binWidth = (maxValue - minValue) / n
 
     # Calculate the range of the bins
     binStarts = np.arange(n) * binWidth + minValue
 
     # Identify which bin the obspoint belongs to
-    obsBin = np.where(obsPoint >= binStarts)[0][-1]  
+    obsBin = np.where(obsPoint >= binStarts)[0][-1]
 
     # Return the X and Y of the piece-wise uniform distribution
     return(binStarts, p[obsBin, :])
@@ -123,7 +123,7 @@ def MCMForecast(p, minValue, maxValue, obsPoint):
 
 def MCMRnd(binStarts, transProbs, count):
     """Generate random forecasts from a bin.
-    
+
     Parameters
     ----------
     binStarts : np.array(n,)
@@ -142,12 +142,10 @@ def MCMRnd(binStarts, transProbs, count):
     # Calculate the bin-width
     binWidth = np.diff(binStarts)[0]
     
-    # Set N as the the matrix size
-    n = binStarts.shape[0]
 
-    # Define the CDF (for later use of inverse CDF)    
+    # Define the CDF (for later use of inverse CDF)
     probsCDF = np.cumsum(transProbs)
- 
+
     # Calculating the Num samples from the distribution
     # First setting initial conditions and a randomizer
     randWithinECDF = np.random.uniform(0, 1, count)
@@ -155,12 +153,11 @@ def MCMRnd(binStarts, transProbs, count):
     randWithinBin = np.random.uniform(0, binWidth, count)
 
 
-    fcstSamples = np.zeros(count)        
+    fcstSamples = np.zeros(count)
     # Sampling from the CDF and then obtaining the inverse CDF
     for i in range(count):
         binIndex = np.where(randWithinECDF[i] <= probsCDF)[0][0]
         fcstSamples[i] = binStarts[binIndex] + randWithinBin[i]
 
-    # Return the samples                
+    # Return the samples
     return(fcstSamples)
-    
